@@ -1709,14 +1709,21 @@ function startDesktopHelper(ctx, logFile) {
   if (process.platform !== 'win32' && process.platform !== 'darwin') return undefined;
   if (!existsSync(DESKTOP_MAIN)) return undefined;
 
-  // win32：安装器落的 ~/.dsh/electron/electron.exe。
-  // darwin：npm 装的 electron 包里真正的 Mach-O 二进制在 dist/Electron.app ——
-  // 不走 node_modules/.bin 的 node 脚本包装（DSH 从 GUI 启动时 PATH 未必有 node）。
-  const electronExe = process.env.CC_ELECTRON_PATH
-    || (process.platform === 'darwin'
-      ? join(homedir(), '.dsh', 'electron', 'node_modules', 'electron', 'dist', 'Electron.app', 'Contents', 'MacOS', 'Electron')
-      : join(homedir(), '.dsh', 'electron', 'electron.exe'));
-  if (!existsSync(electronExe)) return undefined;
+  // 二进制候选按顺序找，谁存在用谁（2026-11-03 双平台版）：
+  //   ① CC_ELECTRON_PATH 指定的（手动兜底，最高优先）
+  //   ② win32：~/.dsh/electron/electron.exe —— 原安装器落的路径（原设计，行为不变）
+  //   ③ npm 装 electron 的标准布局 ~/.dsh/electron/node_modules/electron/dist/…
+  //      （win32 / darwin 各自的 dist 内路径不同；mac 是 Mach-O 二进制，
+  //       不走 node_modules/.bin 的 node 脚本包装 —— DSH 从 GUI 启动时 PATH 未必有 node）
+  const distDir = join(homedir(), '.dsh', 'electron', 'node_modules', 'electron', 'dist');
+  const candidates = [];
+  if (process.env.CC_ELECTRON_PATH) candidates.push(process.env.CC_ELECTRON_PATH);
+  if (process.platform === 'win32') candidates.push(join(homedir(), '.dsh', 'electron', 'electron.exe'));
+  candidates.push(process.platform === 'win32'
+    ? join(distDir, 'electron.exe')
+    : join(distDir, 'Electron.app', 'Contents', 'MacOS', 'Electron'));
+  const electronExe = candidates.find((p) => existsSync(p));
+  if (!electronExe) return undefined;
 
   let port = '';
   try {
