@@ -1704,11 +1704,18 @@ function serveAsset(res, rel, spec) {
  * 起不来不该连累插件本体。
  */
 function startDesktopHelper(ctx, logFile) {
-  if (process.platform !== 'win32') return undefined;
+  // darwin 由 2026-11-03 的移植放开：桌面层 main.js 本身全是跨平台 Electron API，
+  // 只有这道守卫和二进制路径是 Windows 专属的。
+  if (process.platform !== 'win32' && process.platform !== 'darwin') return undefined;
   if (!existsSync(DESKTOP_MAIN)) return undefined;
 
+  // win32：安装器落的 ~/.dsh/electron/electron.exe。
+  // darwin：npm 装的 electron 包里真正的 Mach-O 二进制在 dist/Electron.app ——
+  // 不走 node_modules/.bin 的 node 脚本包装（DSH 从 GUI 启动时 PATH 未必有 node）。
   const electronExe = process.env.CC_ELECTRON_PATH
-    || join(homedir(), '.dsh', 'electron', 'electron.exe');
+    || (process.platform === 'darwin'
+      ? join(homedir(), '.dsh', 'electron', 'node_modules', 'electron', 'dist', 'Electron.app', 'Contents', 'MacOS', 'Electron')
+      : join(homedir(), '.dsh', 'electron', 'electron.exe'));
   if (!existsSync(electronExe)) return undefined;
 
   let port = '';

@@ -46,6 +46,10 @@ const { app, BrowserWindow, ipcMain, screen } = require('electron');
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 const path = require('node:path');
 
+// macOS（2026-11-03 移植）：桌宠是背景玻璃层，不占 Dock ——
+// 否则每次启动都在 Dock 里蹦一个 Electron 图标。
+if (process.platform === 'darwin') { try { app.dock?.hide(); } catch { /* 老 API */ } }
+
 // 宿主端口和路由由插件在 spawn 时用环境变量传进来 —— 每次 DSH 重启端口都会变。
 const HOST_PORT = Number(process.env.CC_HOST_PORT || 0);
 const HOST_ROUTE = String(process.env.CC_HOST_ROUTE || '/stamina-pet');
